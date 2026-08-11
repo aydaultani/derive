@@ -56,7 +56,14 @@ vi.mock("./station-matrix", () => ({
   nearestStation: mockNearestStation,
   travelBetween: mockTravelBetween,
 }));
-vi.mock("./query-builder", () => ({ buildPlaceQuery: mockBuildPlaceQuery }));
+vi.mock("./query-builder", () => ({
+  buildPlaceQuery: mockBuildPlaceQuery,
+  // Real filterOpenNow is a pure JS pass/fail filter over already-fetched
+  // rows (see query-builder.ts) — spin.ts's orchestration isn't what's
+  // under test here, so a no-op stand-in is enough; DEFAULT_FILTERS used
+  // throughout this file has openNow: false anyway, so it would no-op regardless.
+  filterOpenNow: (rows: unknown[]) => rows,
+}));
 vi.mock("./rarity", () => ({ rollCard: mockRollCard }));
 
 // @/db/client is a module-level singleton pointed at the committed sqlite
@@ -203,6 +210,7 @@ function createTestDb(): TestDb {
       score REAL NOT NULL,
       travel_minutes REAL NOT NULL,
       via_line TEXT NOT NULL,
+      transfers INTEGER NOT NULL DEFAULT 0,
       name TEXT NOT NULL,
       reason TEXT NOT NULL,
       dare TEXT NOT NULL,
@@ -215,6 +223,8 @@ function createTestDb(): TestDb {
       origin_label TEXT NOT NULL,
       origin_lat REAL NOT NULL,
       origin_lon REAL NOT NULL,
+      place_lat REAL NOT NULL,
+      place_lon REAL NOT NULL,
       CONSTRAINT cards_user_day_unique UNIQUE (user_id, dealt_date)
     );
   `);
@@ -277,7 +287,34 @@ function wireHappyPath() {
     walkMinutes: 2,
   });
   mockTravelBetween.mockReturnValue({ minutes: 10, transfers: 0, viaLine: "A" });
-  mockBuildPlaceQuery.mockReturnValue({ sql: "SELECT * FROM places", params: [] });
+  // Real buildPlaceQuery resolves to camelCase PlaceQueryRow objects (see
+  // query-builder.ts) — mirror that shape here rather than the placeholder
+  // {sql,params} contract this file used to assume before query-builder.ts
+  // actually landed.
+  mockBuildPlaceQuery.mockResolvedValue([
+    {
+      id: "node/1",
+      osmId: "1",
+      osmType: "node",
+      name: "Broad Channel Nature Trail",
+      lat: 40.608,
+      lon: -73.8206,
+      borough: "queens",
+      category: "park",
+      tagsJson: JSON.stringify({ leisure: "nature_reserve" }),
+      tagCount: 2,
+      address: null,
+      openingHoursRaw: null,
+      budgetTier: "free",
+      indoor: false,
+      nearestStationId: "A24",
+      walkMinutesToStation: 3,
+      stepFreeOk: false,
+      touristDistanceM: 8000,
+      qualityScore: 0.7,
+      sourceUpdatedAt: new Date().toISOString(),
+    },
+  ]);
   mockRollCard.mockImplementation((pool) => {
     const place = pool[0] as Place;
     return { place, tier: "common", score: 0.42 };
@@ -326,7 +363,7 @@ describe("spin()", () => {
   });
 
   it("returns pool_too_small when the filtered pool is empty", async () => {
-    // No places seeded at all -> buildPlaceQuery's raw SELECT returns zero rows.
+    mockBuildPlaceQuery.mockResolvedValue([]); // simulates filters that leave nothing standing
     const result = await spin(baseRequest());
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected ok:false");
@@ -394,6 +431,7 @@ describe("withComputedStatus()", () => {
       score: 0.5,
       travelMinutes: 20,
       viaLine: "A",
+      transfers: 0,
       name: "Broad Channel",
       reason: "reason",
       dare: "dare",
@@ -406,6 +444,8 @@ describe("withComputedStatus()", () => {
       originLabel: "somewhere",
       originLat: 40.7,
       originLon: -73.9,
+      placeLat: 40.608,
+      placeLon: -73.8206,
       ...overrides,
     };
   }

@@ -226,9 +226,9 @@ async function llmCopyFor(place: Place): Promise<Copy | null> {
         },
       ],
     });
-    const text = msg.content.find((b) => b.type === "text")?.text;
-    if (!text) return null;
-    const parsed: unknown = JSON.parse(text);
+    const block = msg.content.find((b: { type: string }) => b.type === "text") as { type: string; text?: string } | undefined;
+    if (!block?.text) return null;
+    const parsed: unknown = JSON.parse(block.text);
     const obj = parsed as { name?: unknown; reason?: unknown; dare?: unknown };
     if (typeof obj.name !== "string" || typeof obj.reason !== "string" || typeof obj.dare !== "string") return null;
     return { name: obj.name, reason: obj.reason, dare: obj.dare, timeWindow: timeWindowFor(place) };

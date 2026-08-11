@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import { z } from "zod";
 import { db } from "@/db/client";
 import { cardCopyCache, cards } from "@/db/schema";
 import {
@@ -32,117 +31,52 @@ import { loadStationMatrix, nearestStation, travelBetween } from "./station-matr
 // Pinned in CONTRACT.md, owned by the filters-collection track. Same
 // situation as the station-matrix module above (doesn't exist yet, mocked
 // in tests, imported via relative path for the same reason).
-import { buildPlaceQuery } from "./query-builder";
+import { buildPlaceQuery, filterOpenNow, type PlaceQueryRow } from "./query-builder";
 // Pinned in CONTRACT.md, owned by the rarity-engine track. Same situation.
-import { rollCard } from "./rarity";
+import { rollCard, type ScoredPlaceInput } from "./rarity";
 
 /**
- * A place augmented with the per-spin, origin-dependent travel info that
- * rollCard's rarity scoring needs (score = f(travelMinutes, tagCount,
- * touristDistanceM) per CONTRACT.md). `Place` (schemas.ts) intentionally has
- * no travelMinutes/viaLine field — travel time depends on the rider's
- * geocoded origin at spin time, not a static place attribute, so it can't
- * live on the ingested Place record.
- *
- * This type is structurally assignable to `Place[]` (it has every required
- * Place field plus extras), so it satisfies rollCard's pinned
- * `rollCard(pool: Place[], ...)` signature without changing that signature.
- * We do NOT rely on rarity.ts reading `.travelMinutes` off the objects it's
- * handed, though — see `withTravel` / the id-keyed lookup below — because
- * rarity.ts's own declared parameter types (`Place`) don't expose those
- * extra fields, so nothing upstream guarantees they survive the round trip.
- * Flagged in the final report as a contract gap worth closing (e.g. an
- * optional `travelMinutes`/`viaLine` on Place, or a richer rollCard input).
+ * `ScoredPlaceInput` (from rarity.ts) is `Place & { travelMinutes: number }`
+ * — travel time is computed per-spin from the rider's geocoded origin, not a
+ * static place attribute, so it can't live on the ingested `Place` record.
+ * We build this array by joining each candidate's `travelBetween()` result
+ * onto it below, right before calling `rollCard`.
  */
-export interface PlaceWithTravel extends Place {
-  travelMinutes: number;
-  viaLine: string;
-}
 
-/**
- * Row shape as it actually comes back from executing buildPlaceQuery's
- * output. Both members of its pinned union type (`{ sql, params }` and a
- * drizzle `sql`-tagged-template SQL object) represent raw SQL text rather
- * than drizzle's typed `db.select().from(places)` query builder — only that
- * typed builder applies the schema's snake_case -> camelCase column
- * mapping. Raw SQL execution (via `db.$client.prepare(...).all()` or
- * `db.all(sqlObject)`) returns rows keyed by the literal SQLite column
- * names, and boolean-mode columns (`indoor`, `step_free_ok`) come back as
- * 0/1 integers rather than real booleans. Flagged for the integration pass
- * to confirm against the real query-builder.ts once it lands — if it
- * aliases columns to camelCase in its SELECT list instead, this needs to
- * change accordingly.
- */
-const PlaceRowSchema = z.object({
-  id: z.string(),
-  osm_id: z.string(),
-  osm_type: z.enum(["node", "way", "relation"]),
-  name: z.string(),
-  lat: z.number(),
-  lon: z.number(),
-  borough: PlaceSchema.shape.borough,
-  category: PlaceSchema.shape.category,
-  tags_json: z.string(),
-  tag_count: z.number(),
-  address: z.string().nullable(),
-  opening_hours_raw: z.string().nullable(),
-  budget_tier: PlaceSchema.shape.budgetTier,
-  indoor: z.union([z.number(), z.boolean()]),
-  nearest_station_id: z.string(),
-  walk_minutes_to_station: z.number(),
-  step_free_ok: z.union([z.number(), z.boolean()]),
-  tourist_distance_m: z.number(),
-  quality_score: z.number(),
-});
-
-function rowToPlace(row: unknown): Place {
-  const r = PlaceRowSchema.parse(row);
+/** query-builder.ts's `buildPlaceQuery` returns a real, awaitable Drizzle
+ * query (not raw SQL text) already mapped to camelCase columns — see
+ * `PlaceQueryRow`. `qualityScore`/`osmType` etc. round-trip untouched;
+ * only `tagsJson` needs decoding back into `Place.tags`. */
+function rowToPlace(row: PlaceQueryRow): Place {
   return PlaceSchema.parse({
-    id: r.id,
-    osmId: r.osm_id,
-    osmType: r.osm_type,
-    name: r.name,
-    lat: r.lat,
-    lon: r.lon,
-    borough: r.borough,
-    category: r.category,
-    tags: JSON.parse(r.tags_json) as Record<string, string>,
-    tagCount: r.tag_count,
-    address: r.address,
-    openingHoursRaw: r.opening_hours_raw,
-    budgetTier: r.budget_tier,
-    indoor: Boolean(r.indoor),
-    nearestStationId: r.nearest_station_id,
-    walkMinutesToStation: r.walk_minutes_to_station,
-    stepFreeOk: Boolean(r.step_free_ok),
-    touristDistanceM: r.tourist_distance_m,
-    qualityScore: r.quality_score,
+    id: row.id,
+    osmId: row.osmId,
+    osmType: row.osmType,
+    name: row.name,
+    lat: row.lat,
+    lon: row.lon,
+    borough: row.borough,
+    category: row.category,
+    tags: JSON.parse(row.tagsJson) as Record<string, string>,
+    tagCount: row.tagCount,
+    address: row.address,
+    openingHoursRaw: row.openingHoursRaw,
+    budgetTier: row.budgetTier,
+    indoor: row.indoor,
+    nearestStationId: row.nearestStationId,
+    walkMinutesToStation: row.walkMinutesToStation,
+    stepFreeOk: row.stepFreeOk,
+    touristDistanceM: row.touristDistanceM,
+    qualityScore: row.qualityScore,
   });
 }
 
-type BuiltQuery = ReturnType<typeof buildPlaceQuery>;
-
-function isRawQuery(q: BuiltQuery): q is { sql: string; params: unknown[] } {
-  return (
-    typeof q === "object" &&
-    q !== null &&
-    typeof (q as { sql?: unknown }).sql === "string" &&
-    Array.isArray((q as { params?: unknown }).params)
-  );
-}
-
-/**
- * Runs buildPlaceQuery(filters) against the real db and decodes the rows
- * into Place objects. buildPlaceQuery's pinned return type is a union
- * (raw {sql, params} vs. a drizzle `sql` tagged-template SQL object) so we
- * branch on shape rather than assume one form.
- */
-function fetchCandidatePlaces(filters: Filters): Place[] {
-  const built = buildPlaceQuery(filters);
-  const rows: unknown[] = isRawQuery(built)
-    ? db.$client.prepare(built.sql).all(...built.params)
-    : (db.all(built) as unknown[]);
-  return rows.map(rowToPlace);
+/** Runs buildPlaceQuery(filters) against the real db, applies the openNow
+ * two-step (see query-builder.ts), and decodes rows into Place objects. */
+async function fetchCandidatePlaces(filters: Filters): Promise<Place[]> {
+  const rows = await buildPlaceQuery(filters);
+  const finalRows = filterOpenNow(rows, filters.openNow);
+  return finalRows.map(rowToPlace);
 }
 
 /** Fallback copy used when a place has no cached card copy yet — never blocks a spin. */
@@ -177,6 +111,7 @@ function rowToCard(row: typeof cards.$inferSelect): Card {
     score: row.score,
     travelMinutes: row.travelMinutes,
     viaLine: row.viaLine,
+    transfers: row.transfers,
     name: row.name,
     reason: row.reason,
     dare: row.dare,
@@ -189,6 +124,8 @@ function rowToCard(row: typeof cards.$inferSelect): Card {
     originLabel: row.originLabel,
     originLat: row.originLat,
     originLon: row.originLon,
+    placeLat: row.placeLat,
+    placeLon: row.placeLon,
   };
 }
 
@@ -300,7 +237,7 @@ export async function spin(request: SpinRequest): Promise<SpinResponse> {
 
   let candidates: Place[];
   try {
-    candidates = fetchCandidatePlaces(request.filters);
+    candidates = await fetchCandidatePlaces(request.filters);
   } catch {
     return {
       ok: false,
@@ -316,7 +253,12 @@ export async function spin(request: SpinRequest): Promise<SpinResponse> {
   // We apply it here, against each place's travel time from the user's
   // nearest station, as the one deliberate exception to "no post-query
   // array filtering."
-  const pool: PlaceWithTravel[] = [];
+  //
+  // `rollCard` (rarity.ts) only accepts `ScoredPlaceInput = Place & { travelMinutes }`
+  // — no viaLine/transfers — so those extras are tracked in a side map keyed
+  // by place id instead of appended onto the objects handed to rollCard.
+  const pool: ScoredPlaceInput[] = [];
+  const travelById = new Map<string, { travelMinutes: number; transfers: number; viaLine: string }>();
   for (const place of candidates) {
     const travel = travelBetween(originStation.station.id, place.nearestStationId);
     if (!travel) continue; // unreachable by subway from this origin
@@ -324,7 +266,8 @@ export async function spin(request: SpinRequest): Promise<SpinResponse> {
     if (request.filters.maxTravelMinutes !== "any" && travelMinutes > request.filters.maxTravelMinutes) {
       continue;
     }
-    pool.push({ ...place, travelMinutes, viaLine: travel.viaLine });
+    pool.push({ ...place, travelMinutes });
+    travelById.set(place.id, { travelMinutes, transfers: travel.transfers, viaLine: travel.viaLine });
   }
 
   const poolSize = pool.length;
@@ -335,13 +278,6 @@ export async function spin(request: SpinRequest): Promise<SpinResponse> {
       message: "No reachable places match your filters today. Try loosening them.",
     };
   }
-
-  // Re-derive travel info by id after rollCard returns rather than trusting
-  // that the returned `RollResult.place` still carries the extra
-  // travelMinutes/viaLine properties we attached above — see the
-  // PlaceWithTravel doc comment for why that's not guaranteed by rarity.ts's
-  // declared types.
-  const travelById = new Map(pool.map((p) => [p.id, { travelMinutes: p.travelMinutes, viaLine: p.viaLine }]));
 
   const result = rollCard(pool, request.userId, dealtDate);
   const travel = travelById.get(result.place.id);
@@ -362,6 +298,7 @@ export async function spin(request: SpinRequest): Promise<SpinResponse> {
     score: result.score,
     travelMinutes: travel.travelMinutes,
     viaLine: travel.viaLine,
+    transfers: travel.transfers,
     name: copy.name,
     reason: copy.reason,
     dare: copy.dare,
@@ -374,6 +311,8 @@ export async function spin(request: SpinRequest): Promise<SpinResponse> {
     originLabel: geocoded.label,
     originLat: geocoded.lat,
     originLon: geocoded.lon,
+    placeLat: result.place.lat,
+    placeLon: result.place.lon,
   });
 
   try {
