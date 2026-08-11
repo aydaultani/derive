@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import { getOrCreateUserId } from "@/lib/local-user";
+import { BracketFrame } from "@/components/ui/bracket-frame";
+import { SectionTag } from "@/components/ui/section-tag";
 
 interface ProofCaptureProps {
   cardId: string;
@@ -103,21 +105,21 @@ export function ProofCapture({ cardId, placeName }: ProofCaptureProps) {
 
   if (state.phase === "success") {
     return (
-      <div className="flex flex-col items-center gap-3 rounded border border-ground-line bg-ground-raised p-6 text-center">
-        <p className="chrome text-sm text-platform">Marked complete</p>
+      <BracketFrame className="flex flex-col items-center gap-3 border border-ground-line bg-ground-raised p-6 text-center">
+        <SectionTag>Marked complete</SectionTag>
         <p className="chrome text-[11px] text-platform-dim">
           {state.proofType === "photo" ? "Photo-verified." : "Honor system — no photo."}
         </p>
         <a href="/collection" className="chrome text-[11px] text-platform underline decoration-dotted underline-offset-2">
           View your collection →
         </a>
-      </div>
+      </BracketFrame>
     );
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
+      <BracketFrame className="flex flex-col gap-2 border border-ground-line bg-ground-raised p-4">
         <p className="chrome text-[11px] text-platform-dim">
           Step within {150}m of {placeName} and take a photo. We check your GPS against the location — nothing is
           uploaded until you submit.
@@ -128,17 +130,17 @@ export function ProofCapture({ cardId, placeName }: ProofCaptureProps) {
           accept="image/*"
           capture="environment"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="chrome text-[11px] text-platform-dim file:chrome file:mr-3 file:rounded file:border file:border-ground-line file:bg-ground-raised file:px-3 file:py-1.5 file:text-platform"
+          className="chrome text-[11px] text-platform-dim file:chrome file:mr-3 file:border file:border-ground-line file:bg-ground-raised file:px-3 file:py-1.5 file:text-platform"
         />
         <button
           type="button"
           onClick={submitPhoto}
           disabled={state.phase === "submitting" || !file}
-          className="chrome rounded border border-platform bg-ground-line px-4 py-3 text-sm text-platform disabled:opacity-40"
+          className="chrome border border-platform bg-ground-line px-4 py-3 text-sm text-platform disabled:opacity-40"
         >
           {state.phase === "submitting" ? "Verifying…" : "I WENT →"}
         </button>
-      </div>
+      </BracketFrame>
 
       {state.phase === "error" ? <p className="chrome text-[11px] text-danger">{state.message}</p> : null}
 

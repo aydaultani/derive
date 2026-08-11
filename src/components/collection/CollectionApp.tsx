@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { getOrCreateUserId } from "@/lib/local-user";
+import { SectionTag } from "@/components/ui/section-tag";
 import { CardDetailModal } from "./CardDetailModal";
 import { CollectionGrid } from "./CollectionGrid";
 import type { CollectionCell, CollectionData } from "./get-collection";
@@ -35,15 +37,25 @@ export function CollectionApp() {
 
   return (
     <main className="flex min-h-full flex-col bg-ground text-platform">
-      <header className="chrome flex items-center justify-between px-4 py-4 text-xs">
-        <span>DERIVE / COLLECTION</span>
+      <header className="chrome flex items-center justify-between border-b border-ground-line px-4 py-4 text-xs">
+        <div className="flex items-center gap-3">
+          <span>DERIVE / COLLECTION</span>
+          <Link
+            href="/?onboarding=1"
+            className="text-[10px] text-platform-dim underline decoration-dotted underline-offset-4 hover:text-platform"
+          >
+            How this works
+          </Link>
+        </div>
         <span>
           {state.phase === "ready" ? `${state.data.completedCount} / ${state.data.totalPlaces}` : "— / —"}
         </span>
       </header>
 
       {state.phase === "loading" ? (
-        <p className="chrome p-6 text-center text-[11px] text-platform-dim">Loading your collection…</p>
+        <div className="p-6">
+          <SectionTag>Loading your collection…</SectionTag>
+        </div>
       ) : state.phase === "error" ? (
         <p className="chrome p-6 text-center text-[11px] text-danger">{state.message}</p>
       ) : (

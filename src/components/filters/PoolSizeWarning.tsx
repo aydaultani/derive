@@ -13,7 +13,7 @@ export function PoolSizeWarning({ poolSize, warning, loading }: PoolSizeWarningP
   if (poolSize === null) return null;
 
   return (
-    <div className="flex flex-col gap-1 rounded border border-ground-line bg-ground-raised px-3 py-2">
+    <div className="flex flex-col gap-1 border border-ground-line bg-ground-raised px-3 py-2">
       <p className="chrome text-[11px] text-platform">
         {poolSize} {poolSize === 1 ? "place" : "places"} in your pool
       </p>

@@ -21,9 +21,15 @@ import path from "node:path";
 import { db } from "../src/db/client";
 import { cardCopyCache } from "../src/db/schema";
 import { PlaceSchema, type Place, type TimeWindow } from "../src/lib/schemas";
+import { passesCopySafety } from "./lib/copy-safety";
 
 const PLACES_PATH = path.join(process.cwd(), "data", "osm", "places.json");
 const CONCURRENCY = 4;
+
+// Counts LLM copy rejected by passesCopySafety, tracked separately from
+// other llmCopyFor failures (network/parse/rate-limit) so the summary log
+// can call out when the safety check specifically did its job.
+let safetyRejectedCount = 0;
 
 interface Copy {
   name: string;
@@ -197,12 +203,19 @@ function timeWindowFor(place: Place): TimeWindow {
 }
 
 function fallbackCopyFor(place: Place): Copy {
-  return {
+  const copy = {
     name: cleanName(place.name),
     reason: hashPick(`${place.id}:reason`, REASON_TEMPLATES[place.category]),
     dare: hashPick(`${place.id}:dare`, DARE_TEMPLATES[place.category]),
     timeWindow: timeWindowFor(place),
   };
+  // The template bank is hand-authored and hardcoded — a safety violation
+  // here is an author bug in this file, not a runtime condition to fall
+  // back from. Fail loud rather than silently shipping bad copy.
+  if (!passesCopySafety(copy)) {
+    throw new Error(`fallback template failed copy safety check for place ${place.id}: ${JSON.stringify(copy)}`);
+  }
+  return copy;
 }
 
 // ---------------------------------------------------------------------------
@@ -231,7 +244,16 @@ async function llmCopyFor(place: Place): Promise<Copy | null> {
     const parsed: unknown = JSON.parse(block.text);
     const obj = parsed as { name?: unknown; reason?: unknown; dare?: unknown };
     if (typeof obj.name !== "string" || typeof obj.reason !== "string" || typeof obj.dare !== "string") return null;
-    return { name: obj.name, reason: obj.reason, dare: obj.dare, timeWindow: timeWindowFor(place) };
+    const copy = { name: obj.name, reason: obj.reason, dare: obj.dare, timeWindow: timeWindowFor(place) };
+    // Model output is the one path with no committed, pre-reviewed text —
+    // reject anything that reads like a real access code (or an
+    // instruction to go get one) rather than caching it. Falls through to
+    // the template generator just like any other generation failure.
+    if (!passesCopySafety(copy)) {
+      safetyRejectedCount++;
+      return null;
+    }
+    return copy;
   } catch {
     return null; // any failure — network, parse, rate limit — falls through to the template generator
   }
@@ -279,7 +301,7 @@ async function main() {
     }
   }
 
-  console.log(`Done. llm=${llmCount} fallback=${fallbackCount}`);
+  console.log(`Done. llm=${llmCount} fallback=${fallbackCount} (${safetyRejectedCount} LLM results rejected by copy-safety check and replaced with a template)`);
 }
 
 main().catch((err) => {

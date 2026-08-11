@@ -1,6 +1,7 @@
 import type { Card } from "@/lib/schemas";
 import { Button } from "@/components/ui/button";
 import { formatExpiryLabel } from "./expiry";
+import { MapView } from "./map-view";
 
 export interface CardDisplayProps {
   card: Card;
@@ -57,6 +58,8 @@ export function CardDisplay({
           </p>
         )}
       </div>
+
+      {hasCoords && <MapView lat={placeLat} lon={placeLon} label={card.name} className="mt-4" />}
 
       <p className="mt-6 text-center text-[15px] leading-relaxed text-platform italic">
         &ldquo;{card.reason}&rdquo;

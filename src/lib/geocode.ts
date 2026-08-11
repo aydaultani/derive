@@ -7,6 +7,11 @@ import { z } from "zod";
  * requires a descriptive User-Agent identifying the app/instance and caps
  * unauthenticated traffic at ~1 request/second — callers (spin.ts) should
  * only call this once per spin, never in a loop.
+ *
+ * `geocodeOrigin` resolves a single best match (limit=1); `suggestOrigins`
+ * requests a small batch of candidates (limit=5) for an autocomplete
+ * dropdown. Both share the same request-building, fetch, and response
+ * parsing logic via `searchNominatim`.
  */
 
 export interface GeocodeResult {
@@ -42,11 +47,11 @@ function userAgent(): string {
   return process.env.NOMINATIM_USER_AGENT ?? DEFAULT_USER_AGENT;
 }
 
-function buildParams(query: string): URLSearchParams {
+function buildParams(query: string, limit: number): URLSearchParams {
   const params = new URLSearchParams({
     format: "json",
     countrycodes: "us",
-    limit: "1",
+    limit: String(limit),
     addressdetails: "0",
     viewbox: NYC_VIEWBOX,
     bounded: "1",
@@ -64,11 +69,16 @@ function buildParams(query: string): URLSearchParams {
   return params;
 }
 
-export async function geocodeOrigin(query: string): Promise<GeocodeResult | null> {
+/**
+ * Shared request/parse path for both exported functions. Returns the parsed
+ * (and numerically-validated) result array, or `[]` on any failure — network
+ * error, timeout, non-2xx response, unparseable JSON/schema mismatch.
+ */
+async function searchNominatim(query: string, limit: number): Promise<GeocodeResult[]> {
   const trimmed = query.trim();
-  if (!trimmed) return null;
+  if (!trimmed) return [];
 
-  const url = `${NOMINATIM_SEARCH_URL}?${buildParams(trimmed).toString()}`;
+  const url = `${NOMINATIM_SEARCH_URL}?${buildParams(trimmed, limit).toString()}`;
 
   let res: Response;
   try {
@@ -82,25 +92,42 @@ export async function geocodeOrigin(query: string): Promise<GeocodeResult | null
     });
   } catch {
     // Network failure, timeout, DNS error, etc.
-    return null;
+    return [];
   }
 
-  if (!res.ok) return null;
+  if (!res.ok) return [];
 
   let json: unknown;
   try {
     json = await res.json();
   } catch {
-    return null;
+    return [];
   }
 
   const parsed = NominatimResponseSchema.safeParse(json);
-  if (!parsed.success || parsed.data.length === 0) return null;
+  if (!parsed.success) return [];
 
-  const [first] = parsed.data;
-  const lat = Number.parseFloat(first.lat);
-  const lon = Number.parseFloat(first.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const results: GeocodeResult[] = [];
+  for (const item of parsed.data) {
+    const lat = Number.parseFloat(item.lat);
+    const lon = Number.parseFloat(item.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    results.push({ lat, lon, label: item.display_name });
+  }
+  return results;
+}
 
-  return { lat, lon, label: first.display_name };
+export async function geocodeOrigin(query: string): Promise<GeocodeResult | null> {
+  const [first] = await searchNominatim(query, 1);
+  return first ?? null;
+}
+
+/**
+ * Returns up to a handful of candidate matches for `query`, for an
+ * autocomplete/typeahead dropdown. Never throws — any failure (network,
+ * timeout, malformed response) resolves to an empty array, same failure
+ * style as `geocodeOrigin`'s null-on-failure but shaped for a list.
+ */
+export async function suggestOrigins(query: string): Promise<GeocodeResult[]> {
+  return searchNominatim(query, 5);
 }

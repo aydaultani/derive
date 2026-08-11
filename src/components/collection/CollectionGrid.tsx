@@ -8,7 +8,7 @@ function matchesTier(cell: CollectionCell, filter: TierFilter): boolean {
   if (filter === "all") return true;
   if (!cell.completed || !cell.rarityTier) return false;
   if (filter === "mine") return true;
-  if (filter === "common") return cell.rarityTier === "common";
+  if (filter === "common") return cell.rarityTier === "common" || cell.rarityTier === "uncommon";
   // rare_plus
   return cell.rarityTier === "rare" || cell.rarityTier === "epic" || cell.rarityTier === "legendary";
 }

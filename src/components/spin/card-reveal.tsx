@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Card } from "@/lib/schemas";
 import { lineColor } from "@/lib/mta-lines";
 import { prefersReducedMotion } from "@/components/ui/use-reduced-motion";
+import { BracketFrame } from "@/components/ui/bracket-frame";
 import { DitherField, readDitherDensity } from "./dither-field";
 import { CardDisplay } from "./card-display";
 
@@ -55,7 +56,7 @@ export function CardReveal({ card, proofHref, transfers, placeLat, placeLon }: C
         }
       `}</style>
 
-      <div className="border border-ground-line bg-ground-raised px-5 py-6">
+      <BracketFrame tint={staged ? tint : undefined} className="border border-ground-line bg-ground-raised px-5 py-6">
         <DitherField density={density} seed={card.id} className="mb-6" />
 
         <div
@@ -92,7 +93,7 @@ export function CardReveal({ card, proofHref, transfers, placeLat, placeLon }: C
             className="mt-6"
           />
         </div>
-      </div>
+      </BracketFrame>
     </div>
   );
 }

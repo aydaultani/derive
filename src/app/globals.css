@@ -50,7 +50,7 @@
   --dither-epic: 0.72;
   --dither-legendary: 0.94;
 
-  --reveal-duration: 3000ms;
+  --reveal-duration: 4500ms;
 }
 
 @theme inline {

@@ -1,22 +1,53 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { usePrefersReducedMotion } from "@/components/ui/use-reduced-motion";
+
+// Same ▓ █ ░ vocabulary as the card-reveal DitherField, so every "please
+// wait" moment in the app reads as the same visual language — flickering
+// noise here, noise that *resolves* there.
+const GLYPHS = ["▓", "█", "░", " ", "░"];
+const NOISE_COLS = 14;
+const NOISE_FRAME_MS = 120;
+
+function randomRow(): string[] {
+  return Array.from({ length: NOISE_COLS }, () => GLYPHS[Math.floor(Math.random() * GLYPHS.length)]);
+}
+
 /**
- * Signage-register loading indicator: bracket-notation progress in the
- * agnost.ai register, not a spinner glyph. Used while a spin is in flight.
- * Its animation duration is a plain constant — the global
+ * Signage-register loading indicator: a flickering pixel-noise strip plus
+ * bracket-notation progress, not a spinner glyph. Used while a spin is in
+ * flight or while checking for today's already-dealt card. The bracket
+ * animation's duration is a plain constant — the global
  * `prefers-reduced-motion` rule in globals.css forces every animation /
- * transition duration to ~0 regardless of source, so this collapses to a
- * static bracket automatically.
+ * transition duration to ~0 regardless of source — but the noise strip
+ * uses JS state, so it's frozen to a static row explicitly below.
  */
 export function LoadingBracket({ label = "ROLLING" }: { label?: string }) {
+  const reducedMotion = usePrefersReducedMotion();
+  const [row, setRow] = useState<string[]>(() =>
+    reducedMotion ? Array(NOISE_COLS).fill("░") : randomRow(),
+  );
+
+  useEffect(() => {
+    if (reducedMotion) return;
+    const interval = window.setInterval(() => setRow(randomRow()), NOISE_FRAME_MS);
+    return () => window.clearInterval(interval);
+  }, [reducedMotion]);
+
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="chrome flex items-center gap-2 text-[11px] text-platform-dim"
-    >
-      <span aria-hidden="true" className="derive-loading-bracket">
-        [<span className="derive-loading-bracket-fill">====</span>------]
-      </span>
-      <span>{label}…</span>
+    <div role="status" aria-live="polite" className="flex flex-col items-center gap-2">
+      <div aria-hidden="true" className="flex gap-px text-[11px] leading-none text-platform-dim">
+        {row.map((glyph, i) => (
+          <span key={i}>{glyph}</span>
+        ))}
+      </div>
+      <div className="chrome flex items-center gap-2 text-[11px] text-platform-dim">
+        <span aria-hidden="true" className="derive-loading-bracket">
+          [<span className="derive-loading-bracket-fill">====</span>------]
+        </span>
+        <span>{label}…</span>
+      </div>
       <style>{`
         .derive-loading-bracket-fill {
           display: inline-block;
