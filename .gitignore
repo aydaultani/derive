@@ -47,3 +47,6 @@ data/*.sqlite-shm
 data/*.sqlite-journal
 data/uploads/
 !data/uploads/.gitkeep
+
+# DERIVE: agent worktrees / plan scratch space, never committed
+.claude/
