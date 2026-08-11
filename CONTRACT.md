@@ -122,3 +122,55 @@ and copy set. One spin, once a day.
 
 Honor-system completions render with a dotted border instead of a solid
 one — same tint, visibly different provenance, never hidden.
+
+## Cross-track function signatures (pin these — don't rename)
+
+Different tracks are built in parallel worktrees without talking to each
+other. These signatures are the seams. Implement exactly these; the
+integration pass wires them together.
+
+```ts
+// src/lib/rarity.ts
+export interface RollResult { place: Place; tier: RarityTier; score: number }
+export function scorePlace(place: Place, pool: Place[]): number;
+export function rollCard(pool: Place[], userId: string, dealtDate: string): RollResult;
+
+// src/lib/geocode.ts
+export interface GeocodeResult { lat: number; lon: number; label: string }
+export function geocodeOrigin(query: string): Promise<GeocodeResult | null>;
+
+// src/lib/station-matrix.ts
+export function loadStationMatrix(): void; // reads data/gtfs/station-matrix.json into memory once
+export function nearestStation(lat: number, lon: number): { station: Station; walkMinutes: number } | null;
+export function travelBetween(fromStationId: string, toStationId: string): { minutes: number; transfers: number; viaLine: string } | null;
+
+// src/lib/query-builder.ts
+export function buildPlaceQuery(filters: Filters): { sql: string; params: unknown[] } | ReturnType<typeof import("drizzle-orm").sql>;
+// Must translate every Filters field into a real SQL predicate against
+// `places`/`stations` — no post-query array filtering. "openNow" may do a
+// coarse SQL narrow (has openingHoursRaw) then precise JS evaluation on
+// the narrowed rows using the `opening_hours` npm package.
+```
+
+## File ownership (parallel worktree tracks)
+
+To keep merges clean, each track only touches these paths:
+
+- **data-pipeline**: `scripts/ingest-places.ts`, `scripts/build-station-matrix.ts`,
+  `scripts/generate-cards.ts`, `scripts/config/rarity-weights.ts`,
+  `scripts/lib/**`, `data/**`, `src/lib/station-matrix.ts`
+- **rarity-engine**: `src/lib/rarity.ts`, `src/lib/rarity.test.ts`,
+  `src/lib/seeded-random.ts`
+- **spin-api**: `src/lib/geocode.ts`, `src/lib/spin.ts`, `src/lib/spin.test.ts`,
+  `src/app/api/spin/route.ts`, `src/lib/local-date.ts`
+- **ui-core**: `src/app/page.tsx`, `src/components/spin/**`,
+  `src/components/ui/**`, `src/lib/local-user.ts`
+- **filters-collection**: `src/lib/query-builder.ts`,
+  `src/components/filters/**`, `src/components/collection/**`,
+  `src/app/collection/page.tsx`, `src/app/api/proof/route.ts`,
+  `src/app/api/places/route.ts`
+
+Shared, read-only for everyone: `src/lib/schemas.ts`, `src/db/schema.ts`,
+`src/db/client.ts`, `src/lib/mta-lines.ts`, `src/app/globals.css`. If a
+track needs a change there, it should say so in its final report instead
+of editing it, so the integration pass applies it once.
