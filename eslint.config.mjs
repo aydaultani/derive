@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // DERIVE: parallel agent worktrees live under here, never lint them
+    // from the main tree — each has its own toolchain run this covers.
+    ".claude/**",
   ]),
 ]);
 

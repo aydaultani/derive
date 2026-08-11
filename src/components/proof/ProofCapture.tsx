@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { getOrCreateUserId } from "@/lib/local-user";
 
 interface ProofCaptureProps {
   cardId: string;
@@ -12,25 +13,6 @@ type SubmitState =
   | { phase: "submitting" }
   | { phase: "success"; proofType: "photo" | "honor" }
   | { phase: "error"; message: string };
-
-/**
- * NOTE on identity: DERIVE has no accounts — a per-browser id is generated
- * once and reused for every spin and every proof submission. The ui-core
- * track owns the canonical version of this at `src/lib/local-user.ts`
- * (not present in this worktree yet). This is a self-contained stand-in
- * using the same `derive:userId` localStorage key so behavior matches once
- * the tracks merge — at integration time this should be swapped for
- * whatever `local-user.ts` exports instead of duplicated here.
- */
-function getOrCreateLocalUserId(): string {
-  const KEY = "derive:userId";
-  if (typeof window === "undefined") return "";
-  const existing = window.localStorage.getItem(KEY);
-  if (existing) return existing;
-  const fresh = crypto.randomUUID();
-  window.localStorage.setItem(KEY, fresh);
-  return fresh;
-}
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -72,7 +54,7 @@ export function ProofCapture({ cardId, placeName }: ProofCaptureProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           cardId,
-          userId: getOrCreateLocalUserId(),
+          userId: getOrCreateUserId(),
           proofType: "photo",
           lat: position.coords.latitude,
           lon: position.coords.longitude,
@@ -101,7 +83,7 @@ export function ProofCapture({ cardId, placeName }: ProofCaptureProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           cardId,
-          userId: getOrCreateLocalUserId(),
+          userId: getOrCreateUserId(),
           proofType: "honor",
         }),
       });

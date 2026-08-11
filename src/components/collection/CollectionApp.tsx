@@ -1,24 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getOrCreateUserId } from "@/lib/local-user";
 import { CardDetailModal } from "./CardDetailModal";
 import { CollectionGrid } from "./CollectionGrid";
 import type { CollectionCell, CollectionData } from "./get-collection";
 import { TierChips, type TierFilter } from "./TierChips";
-
-/** Same per-browser id convention as `src/components/proof/ProofCapture.tsx`
- * — see the note there. `/collection` has no server-side way to know which
- * user is asking (no accounts, no cookies), so this has to be a client
- * fetch off the localStorage id rather than a server-component DB read. */
-function getOrCreateLocalUserId(): string {
-  const KEY = "derive:userId";
-  if (typeof window === "undefined") return "";
-  const existing = window.localStorage.getItem(KEY);
-  if (existing) return existing;
-  const fresh = crypto.randomUUID();
-  window.localStorage.setItem(KEY, fresh);
-  return fresh;
-}
 
 type LoadState =
   | { phase: "loading" }
@@ -31,7 +18,7 @@ export function CollectionApp() {
   const [selected, setSelected] = useState<CollectionCell | null>(null);
 
   useEffect(() => {
-    const userId = getOrCreateLocalUserId();
+    const userId = getOrCreateUserId();
     fetch(`/api/collection?userId=${encodeURIComponent(userId)}`)
       .then((res) => {
         if (!res.ok) throw new Error(`Request failed (${res.status})`);
