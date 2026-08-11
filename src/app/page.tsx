@@ -163,7 +163,14 @@ export default function Home() {
         {phase === "revealed" && card && (
           <div className="flex flex-1 flex-col items-center justify-center gap-4">
             <p className="chrome text-[11px] text-platform-dim">Card dealt.</p>
-            <CardReveal key={card.id} card={card} proofHref={proofHrefFor(card.id)} />
+            <CardReveal
+              key={card.id}
+              card={card}
+              proofHref={proofHrefFor(card.id)}
+              transfers={card.transfers}
+              placeLat={card.placeLat}
+              placeLon={card.placeLon}
+            />
           </div>
         )}
       </main>

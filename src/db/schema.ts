@@ -87,6 +87,7 @@ export const cards = sqliteTable(
     score: real("score").notNull(),
     travelMinutes: real("travel_minutes").notNull(),
     viaLine: text("via_line").notNull(),
+    transfers: integer("transfers").notNull().default(0),
     name: text("name").notNull(),
     reason: text("reason").notNull(),
     dare: text("dare").notNull(),
@@ -101,6 +102,8 @@ export const cards = sqliteTable(
     originLabel: text("origin_label").notNull(),
     originLat: real("origin_lat").notNull(),
     originLon: real("origin_lon").notNull(),
+    placeLat: real("place_lat").notNull(),
+    placeLon: real("place_lon").notNull(),
   },
   (t) => [
     // one card per user per local day — this IS the daily lock

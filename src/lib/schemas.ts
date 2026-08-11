@@ -148,6 +148,7 @@ export const CardSchema = z.object({
   score: z.number(),
   travelMinutes: z.number(),
   viaLine: z.string(), // drives the MTA-line tint
+  transfers: z.number().int().nonnegative(),
   name: z.string(),
   reason: z.string(),
   dare: z.string(),
@@ -160,6 +161,8 @@ export const CardSchema = z.object({
   originLabel: z.string(),
   originLat: z.number(),
   originLon: z.number(),
+  placeLat: z.number(),
+  placeLon: z.number(),
 });
 export type Card = z.infer<typeof CardSchema>;
 
