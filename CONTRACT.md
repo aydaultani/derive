@@ -174,3 +174,33 @@ Shared, read-only for everyone: `src/lib/schemas.ts`, `src/db/schema.ts`,
 `src/db/client.ts`, `src/lib/mta-lines.ts`, `src/app/globals.css`. If a
 track needs a change there, it should say so in its final report instead
 of editing it, so the integration pass applies it once.
+
+## Committed data file shapes (agree on these without a shared file yet)
+
+`data/gtfs/station-matrix.json` (produced by data-pipeline, consumed by
+spin-api's `loadStationMatrix()`):
+
+```json
+{
+  "stations": [
+    { "id": "A24", "name": "Broad Channel", "lat": 40.608, "lon": -73.8206, "borough": "queens", "lines": ["A", "S"], "ada": false }
+  ],
+  "travelTimes": [
+    { "from": "A24", "to": "127", "minutes": 52, "transfers": 1, "viaLine": "A" }
+  ]
+}
+```
+`travelTimes` only needs one direction per unordered pair; treat it as
+symmetric at lookup time. Every station in `travelTimes` must appear in
+`stations`.
+
+`data/osm/places.json` (produced by data-pipeline, loaded into the
+`places` table by `scripts/ingest-places.ts` itself — it should both
+write this snapshot AND populate `data/derive.sqlite` in the same run):
+an array of objects matching `Place` from `src/lib/schemas.ts` exactly.
+
+If you're not the data-pipeline track, write a small fixture file at
+`data/gtfs/station-matrix.sample.json` / `data/osm/places.sample.json`
+(3-5 entries, real NYC places/stations, shape-correct) so your own tests
+and manual runs work before the real snapshot lands — the integration
+pass will point everything at the real files once merged.
