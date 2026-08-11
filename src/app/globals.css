@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+/*
+ * DERIVE design tokens.
+ * Palette is inherited from the city (MTA line colors), never invented.
+ * Dark ground. Rarity is felt in ASCII dither texture, not glow/gradients.
+ */
+
+:root {
+  /* ground */
+  --ground: #0a0b0d;
+  --ground-raised: #101216;
+  --ground-line: #1c1f26;
+  --platform: #e8e6df;
+  --platform-dim: #8b8f98;
+  --platform-faint: #4a4e58;
+  --warn: #fccc0a; /* borrowed from N/Q/R/W — used for warnings, sparingly */
+  --danger: #ee352e; /* borrowed from 1/2/3 — expired/failed states only */
+
+  /* MTA line colors — the accent system. tinted per-card by viaLine. */
+  --line-1: #ee352e;
+  --line-2: #ee352e;
+  --line-3: #ee352e;
+  --line-4: #00933c;
+  --line-5: #00933c;
+  --line-6: #00933c;
+  --line-7: #b933ad;
+  --line-a: #0039a6;
+  --line-c: #0039a6;
+  --line-e: #0039a6;
+  --line-b: #ff6319;
+  --line-d: #ff6319;
+  --line-f: #ff6319;
+  --line-m: #ff6319;
+  --line-g: #6cbe45;
+  --line-j: #996633;
+  --line-z: #996633;
+  --line-l: #a7a9ac;
+  --line-n: #fccc0a;
+  --line-q: #fccc0a;
+  --line-r: #fccc0a;
+  --line-w: #fccc0a;
+  --line-s: #808183;
+  --line-sir: #0039a6;
+
+  /* dither density per rarity tier — the signature element */
+  --dither-common: 0.12;
+  --dither-uncommon: 0.28;
+  --dither-rare: 0.48;
+  --dither-epic: 0.72;
+  --dither-legendary: 0.94;
+
+  --reveal-duration: 3000ms;
+}
+
+@theme inline {
+  --color-ground: var(--ground);
+  --color-ground-raised: var(--ground-raised);
+  --color-ground-line: var(--ground-line);
+  --color-platform: var(--platform);
+  --color-platform-dim: var(--platform-dim);
+  --color-platform-faint: var(--platform-faint);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+}
+
+body {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+/* Card name / hero moments use the display face explicitly via .font-display */
+.font-display {
+  font-family: var(--font-display), ui-serif, serif;
+}
+
+/* Structural chrome — travel time, station codes, coordinates, filter labels — is
+   always mono, set the way a service advisory sets a stop name. */
+.chrome {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --reveal-duration: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
