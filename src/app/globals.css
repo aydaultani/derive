@@ -3,7 +3,12 @@
 /*
  * DERIVE design tokens.
  * Palette is inherited from the city (MTA line colors), never invented.
- * Dark ground. Rarity is felt in ASCII dither texture, not glow/gradients.
+ * Dark ground, deliberately — explicitly reconfirmed by the user after an
+ * earlier thinkingmachines.ai/agnost.ai-inspired structural pass asked
+ * directly whether to go full light-mode or keep the dark ground + MTA
+ * line-color identity; they chose to keep dark ground. Don't flip this
+ * without asking again. Rarity is felt in ASCII dither texture, not
+ * glow/gradients.
  */
 
 :root {
@@ -50,7 +55,7 @@
   --dither-epic: 0.72;
   --dither-legendary: 0.94;
 
-  --reveal-duration: 4500ms;
+  --reveal-duration: 3000ms;
 }
 
 @theme inline {
@@ -82,6 +87,39 @@ body {
   font-family: var(--font-mono), ui-monospace, monospace;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+/* Ambient life: a staggered "resolve from noise" entrance (echoes the
+   DitherField reveal) and a slow idle twinkle on lit/dense dither text so
+   the collection grid doesn't read as a static screenshot. Both collapse
+   under prefers-reduced-motion via the blanket rule below. */
+@keyframes derive-resolve-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.derive-resolve-in {
+  animation: derive-resolve-in 320ms ease-out both;
+}
+
+@keyframes derive-twinkle {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.derive-twinkle {
+  animation: derive-twinkle 2.4s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

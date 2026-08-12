@@ -1,4 +1,5 @@
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
+import { contrastTextColor } from "@/lib/mta-lines";
 
 type Variant = "primary" | "ghost";
 
@@ -23,7 +24,7 @@ type ButtonAsButton = SharedProps &
 export type ButtonProps = ButtonAsLink | ButtonAsButton;
 
 const BASE_CLASSES =
-  "chrome inline-flex w-full items-center justify-center gap-2 px-5 py-3.5 text-[13px] font-medium tracking-[0.04em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-40";
+  "chrome inline-flex w-full items-center justify-center gap-2 px-5 py-3.5 text-[13px] font-medium tracking-[0.04em] transition duration-150 ease-out hover:scale-[1.02] active:scale-[0.96] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-40";
 
 /**
  * The one button DERIVE needs: a full-width tinted primary ("I went →") and
@@ -35,12 +36,18 @@ export function Button(props: ButtonProps) {
 
   const variantClasses =
     variant === "primary"
-      ? "border text-ground"
+      ? "border hover:brightness-110"
       : "border border-ground-line bg-transparent text-platform hover:border-platform-dim";
 
   const style =
     variant === "primary"
-      ? { backgroundColor: tint ?? "var(--platform)", borderColor: tint ?? "var(--platform)" }
+      ? {
+          backgroundColor: tint ?? "var(--platform)",
+          borderColor: tint ?? "var(--platform)",
+          // Fixed by the fill's own lightness (subway-roundel bullet-color
+          // rule), not the theme — stays legible if ground ever flips dark.
+          color: tint ? contrastTextColor(tint) : "var(--ground)",
+        }
       : undefined;
 
   const classes = [BASE_CLASSES, variantClasses, className].filter(Boolean).join(" ");

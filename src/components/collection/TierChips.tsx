@@ -23,7 +23,7 @@ export function TierChips({ value, onChange }: TierChipsProps) {
           type="button"
           onClick={() => onChange(opt.value)}
           aria-pressed={value === opt.value}
-          className={`chrome rounded-full border px-3 py-1 text-[11px] transition-colors ${
+          className={`chrome rounded-full border px-3 py-1 text-[11px] transition-all duration-150 hover:scale-[1.04] active:scale-95 ${
             value === opt.value
               ? "border-platform bg-ground-line text-platform"
               : "border-ground-line text-platform-dim hover:text-platform"

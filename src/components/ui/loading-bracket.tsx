@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { usePrefersReducedMotion } from "@/components/ui/use-reduced-motion";
 
 // Same ▓ █ ░ vocabulary as the card-reveal DitherField, so every "please
-// wait" moment in the app reads as the same visual language — flickering
+// wait" moment in the app reads as the same visual language: flickering
 // noise here, noise that *resolves* there.
 const GLYPHS = ["▓", "█", "░", " ", "░"];
 const NOISE_COLS = 14;
@@ -18,10 +18,10 @@ function randomRow(): string[] {
  * Signage-register loading indicator: a flickering pixel-noise strip plus
  * bracket-notation progress, not a spinner glyph. Used while a spin is in
  * flight or while checking for today's already-dealt card. The bracket
- * animation's duration is a plain constant — the global
+ * animation's duration is a plain constant: the global
  * `prefers-reduced-motion` rule in globals.css forces every animation /
- * transition duration to ~0 regardless of source — but the noise strip
- * uses JS state, so it's frozen to a static row explicitly below.
+ * transition duration to ~0 regardless of source. The noise strip
+ * uses JS state, though, so it's frozen to a static row explicitly below.
  */
 export function LoadingBracket({ label = "ROLLING" }: { label?: string }) {
   const reducedMotion = usePrefersReducedMotion();

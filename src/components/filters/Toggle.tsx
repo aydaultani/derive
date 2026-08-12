@@ -22,7 +22,7 @@ export function Toggle({ label, checked, onChange, hint }: ToggleProps) {
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors ${
+        className={`relative h-6 w-11 shrink-0 rounded-full border transition-all duration-150 hover:scale-[1.04] active:scale-95 ${
           checked ? "border-platform bg-platform-dim" : "border-ground-line bg-ground-raised"
         }`}
       >

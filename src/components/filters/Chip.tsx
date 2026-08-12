@@ -13,7 +13,7 @@ export function Chip({ label, selected, onClick }: ChipProps) {
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`chrome shrink-0 rounded-full border px-3 py-1.5 text-xs transition-colors ${
+      className={`chrome shrink-0 rounded-full border px-3 py-1.5 text-xs transition-all duration-150 hover:scale-[1.04] active:scale-95 ${
         selected
           ? "border-platform bg-ground-line text-platform"
           : "border-ground-line bg-transparent text-platform-dim hover:border-platform-faint hover:text-platform"
