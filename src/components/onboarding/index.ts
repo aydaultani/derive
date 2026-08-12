@@ -1,1 +1,1 @@
-export { OnboardingOverlay } from "./OnboardingOverlay";
+export { SpotlightTour } from "./SpotlightTour";

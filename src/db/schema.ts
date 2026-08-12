@@ -72,6 +72,21 @@ export const cardCopyCache = sqliteTable("card_copy_cache", {
   generatedAt: text("generated_at").notNull(),
 });
 
+/**
+ * Anonymous identity pairing: `id` is the client-minted userId (opaque
+ * UUID from localStorage, see src/lib/local-user.ts), `secretHash` is a
+ * SHA-256 hash of a second client-minted secret used to prove control of
+ * that id on later requests (trust-on-first-use — see src/lib/user-auth.ts).
+ * No FK from cards.userId; adding one risks breaking any preexisting rows.
+ */
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  secretHash: text("secret_hash").notNull(),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
 /** A dealt spin: server-seeded, locked the moment it's dealt. */
 export const cards = sqliteTable(
   "cards",

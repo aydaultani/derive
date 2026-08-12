@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import type { Card } from "@/lib/schemas";
 import { lineColor } from "@/lib/mta-lines";
 import { prefersReducedMotion } from "@/components/ui/use-reduced-motion";
 import { BracketFrame } from "@/components/ui/bracket-frame";
-import { DitherField, readDitherDensity } from "./dither-field";
+import { readDitherDensity } from "./dither-field";
+import { VaultReveal } from "./vault-reveal";
 import { CardDisplay } from "./card-display";
 
 export interface CardRevealProps {
@@ -14,21 +15,28 @@ export interface CardRevealProps {
   transfers?: number;
   placeLat?: number;
   placeLon?: number;
+  /** Overrides the `--reveal-duration` token for just this mount — e.g. the
+   * page-load replay of an already-dealt card runs slower/showier than the
+   * snappy reveal right after tapping Spin. Omit to use the global default
+   * from globals.css. */
+  revealDurationMs?: number;
 }
 
 /**
- * Orchestrates the ~3s reveal: dither field resolves (handled internally by
- * DitherField) → line-color bleeds in behind the name plate → name & copy
- * set last. Staging is driven by CSS `animation` with delays/durations
+ * Orchestrates the reveal: a gold vault door parts and spills a few bills
+ * (handled internally by VaultReveal, density-scaled by rarity tier same as
+ * DitherField was) → line-color bleeds in behind the name plate → name &
+ * copy set last. Staging is driven by CSS `animation` with delays/durations
  * expressed as `calc(var(--reveal-duration) * fraction)`, so tuning the
- * token in globals.css re-times this automatically, and
- * `prefers-reduced-motion` (which both zeroes the token and forces
- * near-zero animation durations globally) collapses it to the final state.
+ * token (globally in globals.css, or per-mount via `revealDurationMs`)
+ * re-times this automatically, and `prefers-reduced-motion` (which both
+ * zeroes the token and forces near-zero animation durations globally)
+ * collapses it to the final state.
  *
  * Mount this with `key={card.id}` from the caller so a new card replays
  * the sequence instead of reusing stale animation state.
  */
-export function CardReveal({ card, proofHref, transfers, placeLat, placeLon }: CardRevealProps) {
+export function CardReveal({ card, proofHref, transfers, placeLat, placeLon, revealDurationMs }: CardRevealProps) {
   const tint = lineColor(card.viaLine);
   const [density] = useState(() => readDitherDensity(card.rarityTier));
 
@@ -44,7 +52,10 @@ export function CardReveal({ card, proofHref, transfers, placeLat, placeLon }: C
   }, [staged]);
 
   return (
-    <div className="w-full max-w-sm">
+    <div
+      className="w-full max-w-sm"
+      style={revealDurationMs !== undefined ? ({ "--reveal-duration": `${revealDurationMs}ms` } as CSSProperties) : undefined}
+    >
       <style>{`
         @keyframes derive-bleed-in {
           from { opacity: 0; transform: scaleX(0.5); }
@@ -57,7 +68,7 @@ export function CardReveal({ card, proofHref, transfers, placeLat, placeLon }: C
       `}</style>
 
       <BracketFrame tint={staged ? tint : undefined} className="border border-ground-line bg-ground-raised px-5 py-6">
-        <DitherField density={density} seed={card.id} className="mb-6" />
+        <VaultReveal density={density} seed={card.id} className="mb-6" revealDurationMs={revealDurationMs} />
 
         <div
           aria-hidden="true"

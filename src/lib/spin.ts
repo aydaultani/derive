@@ -279,7 +279,7 @@ export async function spin(request: SpinRequest): Promise<SpinResponse> {
     };
   }
 
-  const result = rollCard(pool, request.userId, dealtDate);
+  const result = rollCard(pool, request.userId, dealtDate, request.filters.rarityFloor);
   const travel = travelById.get(result.place.id);
   if (!travel) {
     // Should be unreachable: rollCard is contracted to pick from `pool`.

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db/client";
 import { cards, places } from "@/db/schema";
 import { PROOF_RADIUS_METERS, ProofSubmitSchema } from "@/lib/schemas";
+import { authenticateUser } from "@/lib/user-auth";
 
 /**
  * Orchestration-only glue to `cards`: validates the request, checks the
@@ -91,6 +92,11 @@ export async function POST(request: Request) {
     return jsonError("invalid_request", parsed.error.issues.map((i) => i.message).join("; "), 400);
   }
   const { cardId, userId, proofType, lat, lon, photoDataUrl } = parsed.data;
+
+  const auth = await authenticateUser(userId, request.headers.get("x-derive-user-secret"));
+  if (!auth.ok) {
+    return jsonError("forbidden", "Couldn't verify this user.", auth.status);
+  }
 
   const [card] = await db.select().from(cards).where(eq(cards.id, cardId)).limit(1);
   if (!card) {

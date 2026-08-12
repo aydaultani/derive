@@ -1,6 +1,6 @@
 "use client";
 
-import { lineColor, readableTint } from "@/lib/mta-lines";
+import { lineColor } from "@/lib/mta-lines";
 import type { CollectionCell } from "./get-collection";
 import { GHOST_DITHER_DENSITY, TIER_DITHER_DENSITY, seededDitherGrid } from "./dither";
 
@@ -40,7 +40,7 @@ export function Cell({ cell, onSelect }: CellProps) {
       style={{
         borderWidth: 1,
         borderStyle,
-        borderColor: tint ? readableTint(tint) : "var(--ground-line)",
+        borderColor: tint ?? "var(--ground-line)",
         backgroundColor: tint ? `${tint}26` : "var(--ground-raised)",
         animationDelay: `${resolveDelayMs}ms`,
       }}
@@ -49,7 +49,7 @@ export function Cell({ cell, onSelect }: CellProps) {
         className={`font-mono leading-none whitespace-pre select-none ${cell.completed ? "derive-twinkle" : ""}`}
         style={{
           fontSize: "5px",
-          color: tint ? readableTint(tint) : "var(--platform-faint)",
+          color: tint ?? "var(--platform-faint)",
           opacity: cell.completed ? 0.9 : 0.35,
           ...(cell.completed
             ? { animationDelay: `${twinkleDelayMs}ms`, animationDuration: `${twinkleDurationMs}ms` }

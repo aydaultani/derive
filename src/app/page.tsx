@@ -9,18 +9,25 @@ import {
   type SpinRequest,
   type SpinResponse,
 } from "@/lib/schemas";
-import { getOrCreateUserId, getCurrentStreak, recordCardSeen } from "@/lib/local-user";
+import { getOrCreateUserId, getOrCreateUserSecret, getCurrentStreak, recordCardSeen } from "@/lib/local-user";
 import { hasSeenOnboarding } from "@/lib/onboarding";
 import { CardReveal } from "@/components/spin/card-reveal";
 import { OriginForm } from "@/components/spin/origin-form";
 import { LoadingBracket } from "@/components/ui/loading-bracket";
 import { SectionTag } from "@/components/ui/section-tag";
 import { FilterPanel, useFilters } from "@/components/filters";
-import { OnboardingOverlay } from "@/components/onboarding";
+import { SpotlightTour } from "@/components/onboarding";
 
 type Phase = "checking" | "form" | "spinning" | "revealed";
 
 const STREAK_DOTS = 7;
+
+// Replaying an already-dealt card on page load (no click just happened, the
+// user is just opening the app) gets to linger — it's the one moment
+// nothing is blocking on the animation, so it can afford to be the "cool"
+// slow version. The reveal right after tapping Spin uses the fast global
+// default from globals.css instead, since the user is actively waiting on it.
+const PAGE_LOAD_REVEAL_DURATION_MS = 6000;
 
 /** Proof-flow entry point picked by ui-core: `/proof/[cardId]`. */
 function proofHrefFor(cardId: string): string {
@@ -30,7 +37,10 @@ function proofHrefFor(cardId: string): string {
 async function fetchTodaysCard(userId: string, timezone: string): Promise<Card | null> {
   try {
     const params = new URLSearchParams({ userId, timezone });
-    const res = await fetch(`/api/spin?${params.toString()}`, { cache: "no-store" });
+    const res = await fetch(`/api/spin?${params.toString()}`, {
+      cache: "no-store",
+      headers: { "x-derive-user-secret": getOrCreateUserSecret() },
+    });
     if (!res.ok) return null;
     const raw: unknown = await res.json().catch(() => null);
     if (raw === null) return null;
@@ -49,7 +59,7 @@ async function postSpin(payload: SpinRequest): Promise<SpinResponse | null> {
   try {
     const res = await fetch("/api/spin", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-derive-user-secret": getOrCreateUserSecret() },
       body: JSON.stringify(payload),
     });
     const raw: unknown = await res.json().catch(() => null);
@@ -77,11 +87,12 @@ function OnboardingQueryTrigger({ onForceOpen }: { onForceOpen: () => void }) {
 export default function Home() {
   const [phase, setPhase] = useState<Phase>("checking");
   const [card, setCard] = useState<Card | null>(null);
+  const [revealDurationMs, setRevealDurationMs] = useState<number | undefined>(undefined);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [streak, setStreak] = useState(0);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const { filters, setFilters } = useFilters();
+  const { filters, setFilters, hydrated: filtersHydrated } = useFilters();
 
   // On mount: returning visitors with a card already dealt today see it
   // immediately instead of being offered a fresh spin. First-time
@@ -107,6 +118,7 @@ export default function Home() {
         recordCardSeen(existing.dealtDate);
         setStreak(getCurrentStreak(timezone));
         setCard(existing);
+        setRevealDurationMs(PAGE_LOAD_REVEAL_DURATION_MS);
         setPhase("revealed");
       } else {
         setPhase("form");
@@ -137,6 +149,7 @@ export default function Home() {
       recordCardSeen(response.card.dealtDate);
       setStreak(getCurrentStreak(timezone));
       setCard(response.card);
+      setRevealDurationMs(undefined);
       setPhase("revealed");
       return;
     }
@@ -145,6 +158,7 @@ export default function Home() {
       recordCardSeen(response.existingCard.dealtDate);
       setStreak(getCurrentStreak(timezone));
       setCard(response.existingCard);
+      setRevealDurationMs(undefined);
       setPhase("revealed");
       return;
     }
@@ -159,11 +173,13 @@ export default function Home() {
         <OnboardingQueryTrigger onForceOpen={() => setShowOnboarding(true)} />
       </Suspense>
 
-      {showOnboarding ? <OnboardingOverlay onClose={() => setShowOnboarding(false)} /> : null}
+      {showOnboarding ? <SpotlightTour onClose={() => setShowOnboarding(false)} /> : null}
 
       <header className="chrome flex w-full max-w-sm items-center justify-between border-b border-ground-line px-5 py-5 text-[11px] text-platform-dim">
         <div className="flex items-center gap-3">
-          <span className="text-platform tracking-[0.15em]">DERIVE</span>
+          <span className="text-platform tracking-[0.15em]" data-onboarding="wordmark">
+            DERIVE
+          </span>
           <button
             type="button"
             onClick={() => setShowOnboarding(true)}
@@ -175,11 +191,16 @@ export default function Home() {
         </div>
         <Link
           href="/collection"
+          data-onboarding="collection-link"
           className="chrome text-[11px] text-platform-dim underline decoration-dotted underline-offset-4 hover:text-platform"
         >
           Collection
         </Link>
-        <div className="flex items-center gap-1" aria-label={`Streak: ${streak} day${streak === 1 ? "" : "s"}`}>
+        <div
+          className="flex items-center gap-1"
+          data-onboarding="streak-dots"
+          aria-label={`Streak: ${streak} day${streak === 1 ? "" : "s"}`}
+        >
           {Array.from({ length: STREAK_DOTS }, (_, i) => (
             <span
               key={i}
@@ -214,6 +235,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setShowFilters((v) => !v)}
+              data-onboarding="filters-toggle"
               className="chrome text-[11px] text-platform-dim underline decoration-dotted underline-offset-4 hover:text-platform"
             >
               {showFilters ? "Hide filters" : "Filters"}
@@ -221,7 +243,7 @@ export default function Home() {
 
             {showFilters ? (
               <div className="w-full max-w-sm border border-ground-line text-left">
-                <FilterPanel onFiltersChange={setFilters} />
+                <FilterPanel filters={filters} onChange={setFilters} hydrated={filtersHydrated} />
               </div>
             ) : null}
           </div>
@@ -243,6 +265,7 @@ export default function Home() {
               transfers={card.transfers}
               placeLat={card.placeLat}
               placeLon={card.placeLon}
+              revealDurationMs={revealDurationMs}
             />
           </div>
         )}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getOrCreateUserId } from "@/lib/local-user";
+import { getOrCreateUserId, getOrCreateUserSecret } from "@/lib/local-user";
 import { SectionTag } from "@/components/ui/section-tag";
 import { CardDetailModal } from "./CardDetailModal";
 import { CollectionGrid } from "./CollectionGrid";
@@ -21,7 +21,9 @@ export function CollectionApp() {
 
   useEffect(() => {
     const userId = getOrCreateUserId();
-    fetch(`/api/collection?userId=${encodeURIComponent(userId)}`)
+    fetch(`/api/collection?userId=${encodeURIComponent(userId)}`, {
+      headers: { "x-derive-user-secret": getOrCreateUserSecret() },
+    })
       .then((res) => {
         if (!res.ok) throw new Error(`Request failed (${res.status})`);
         return res.json();

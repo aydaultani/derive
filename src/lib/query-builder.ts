@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, or, type SQL } from "drizzle-orm";
 import OpeningHours from "opening_hours";
 import { db } from "@/db/client";
 import { cardCopyCache, places, stations } from "@/db/schema";
@@ -59,7 +59,19 @@ export function buildPlaceQuery(filters: Filters) {
   }
 
   if (filters.timeOfDay !== "any") {
-    conditions.push(inArray(cardCopyCache.timeWindow, [filters.timeOfDay, "any"]));
+    // A place with no card_copy_cache row yet (ingest has outpaced card-copy
+    // generation) has NULL here after the LEFT JOIN. `IN` against NULL is
+    // UNKNOWN, not true, so a bare inArray() silently drops those places —
+    // but spin.ts's fallbackCopy() treats missing copy as timeWindow "any",
+    // so they should match every timeOfDay filter, not be excluded from all
+    // of them. The isNull() branch keeps that consistent.
+    const timeOfDayCondition = or(
+      inArray(cardCopyCache.timeWindow, [filters.timeOfDay, "any"]),
+      isNull(cardCopyCache.timeWindow),
+    );
+    // or() is typed as possibly-undefined for the zero-argument case; with
+    // two conditions always passed here, it's never actually undefined.
+    if (timeOfDayCondition) conditions.push(timeOfDayCondition);
   }
 
   const query = db

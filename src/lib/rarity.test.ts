@@ -180,3 +180,61 @@ describe("rollCard edge cases", () => {
     expect(() => rollCard([], "user-1", "2026-08-12")).toThrow();
   });
 });
+
+describe("rollCard rarityFloor (minTier)", () => {
+  const TIER_RANK: Record<RarityTier, number> = {
+    common: 0,
+    uncommon: 1,
+    rare: 2,
+    epic: 3,
+    legendary: 4,
+  };
+
+  it("never returns a tier below the requested floor, sampled over many dates", () => {
+    const pool = makePool(400);
+    for (let i = 0; i < 500; i++) {
+      const result = rollCard(pool, "user-floor", `2026-01-${(i % 28) + 1}`, "rare");
+      expect(TIER_RANK[result.tier]).toBeGreaterThanOrEqual(TIER_RANK.rare);
+    }
+  });
+
+  it("minTier='legendary' always returns legendary on a pool large enough to have a non-empty legendary bucket", () => {
+    const pool = makePool(400);
+    for (let i = 0; i < 100; i++) {
+      const result = rollCard(pool, "user-legendary-floor", `2026-02-${(i % 28) + 1}`, "legendary");
+      expect(result.tier).toBe("legendary");
+    }
+  });
+
+  it("default minTier (unset) behaves exactly like explicit 'common' — the full, unrestricted range", () => {
+    const pool = makePool(400);
+    const withDefault = rollCard(pool, "user-default", "2026-03-01");
+    const withCommon = rollCard(pool, "user-default", "2026-03-01", "common");
+    expect(withDefault).toEqual(withCommon);
+  });
+
+  it("is still deterministic with a floor set: same (pool, userId, dealtDate, minTier) always produces the same result", () => {
+    const pool = makePool(200);
+    const first = rollCard(pool, "user-det-floor", "2026-04-01", "epic");
+    const second = rollCard(pool, "user-det-floor", "2026-04-01", "epic");
+    expect(first).toEqual(second);
+  });
+
+  it("renormalizes eligible-tier odds rather than just clipping the unrestricted draw (rare+ split roughly 13:4.5:0.5, not silently common-heavy)", () => {
+    const pool = makePool(400);
+    const tally: Record<RarityTier, number> = { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 };
+    const draws = 20_000;
+    for (let i = 0; i < draws; i++) {
+      const result = rollCard(pool, "user-renorm", `d${i}`, "rare");
+      tally[result.tier]++;
+    }
+    expect(tally.common).toBe(0);
+    expect(tally.uncommon).toBe(0);
+    // Among rare/epic/legendary, rare should be the large majority (original
+    // relative weights 13:4.5:0.5 renormalized to sum to 1) — not anywhere
+    // close to an even three-way split, which is what a "just clip the
+    // unrestricted [0,1) draw and resample" bug would produce instead.
+    const rareShare = tally.rare / draws;
+    expect(rareShare).toBeGreaterThan(0.6);
+  });
+});

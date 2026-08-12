@@ -29,6 +29,13 @@ one for a shot at Legendary), and spin.
 
 ## How it works
 
+- **First visit.** A seven-step walkthrough (spin, address input, rarity,
+  the dare, filters, proof, the collection) covers the whole loop before
+  you ever type an address. Shown once automatically, replayable anytime
+  via the `?` button in the header.
+- **Typing an address.** Live autocomplete (debounced, keyboard-navigable)
+  suggests real NYC addresses as you type, backed by `GET
+  /api/geocode/suggest` — no geolocation prompt, just an address or ZIP.
 - **The spin.** One per day, keyed to your local midnight. The card is
   server-seeded from a hash of your (anonymous, localStorage-only) user
   id and the date, so refreshing the page can never reroll it — the same
@@ -48,7 +55,11 @@ one for a shot at Legendary), and spin.
   template-based fallback generator (varied by category, deterministic
   per place) produces the copy for the committed dataset. Set
   `ANTHROPIC_API_KEY` and run `pnpm generate:cards` to regenerate with a
-  live model instead.
+  live model instead. A copy-safety guard (`scripts/lib/copy-safety.ts`)
+  scans generated dares against the committed seed DB so none leak a
+  literal access code (door codes, bathroom codes, etc.).
+- **The reveal.** The dealt place drops onto an embedded map (`MapView`)
+  with an "Open in Maps" link, alongside the usual name/rarity/dare copy.
 - **Proof.** Photo + GPS check against the target (150m radius — GPS in
   Manhattan is a mess between buildings), or an honor-system "I went" for
   anyone who'd rather not hand over a photo. Both mint the card into your
@@ -89,6 +100,11 @@ never a single global brand color. Rarity renders as **ASCII dither
 density**: a Common card's field is sparse `░`, a Legendary's is a dense
 `▓▓▓` block that resolves on reveal. No glow, no gradients, no loot-beam
 VFX — see `CONTRACT.md` for the full token system and ASCII wireframes.
+
+Motion stays in the same vocabulary: the collection grid resolves in from
+dither noise on load and lit cards idle-twinkle independently, buttons
+and filter chips get scale-based press feedback — texture and physicality
+without adding glow or gradients.
 
 ## Stack
 

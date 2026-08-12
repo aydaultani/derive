@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { SpinRequestSchema, CardSchema } from "@/lib/schemas";
 import { getTodaysCard, spin } from "@/lib/spin";
+import { authenticateUser } from "@/lib/user-auth";
 
 /**
  * POST /api/spin — attempt today's spin for (userId, timezone, origin,
@@ -45,6 +46,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const auth = await authenticateUser(parsed.data.userId, req.headers.get("x-derive-user-secret"));
+  if (!auth.ok) {
+    return NextResponse.json(
+      { ok: false, message: "Couldn't verify this user." },
+      { status: auth.status },
+    );
+  }
+
   try {
     const result = await spin(parsed.data);
     return NextResponse.json(result, { status: 200 });
@@ -81,6 +90,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       { ok: false, message: parsed.error.issues.map((issue) => issue.message).join("; ") },
       { status: 400 },
+    );
+  }
+
+  const auth = await authenticateUser(parsed.data.userId, req.headers.get("x-derive-user-secret"));
+  if (!auth.ok) {
+    return NextResponse.json(
+      { ok: false, message: "Couldn't verify this user." },
+      { status: auth.status },
     );
   }
 

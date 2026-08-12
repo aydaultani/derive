@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { getOrCreateUserId } from "@/lib/local-user";
+import { getOrCreateUserId, getOrCreateUserSecret } from "@/lib/local-user";
 import { BracketFrame } from "@/components/ui/bracket-frame";
 import { SectionTag } from "@/components/ui/section-tag";
 
@@ -53,7 +53,7 @@ export function ProofCapture({ cardId, placeName }: ProofCaptureProps) {
       const [position, photoDataUrl] = await Promise.all([getPosition(), readFileAsDataUrl(file)]);
       const res = await fetch("/api/proof", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-derive-user-secret": getOrCreateUserSecret() },
         body: JSON.stringify({
           cardId,
           userId: getOrCreateUserId(),
@@ -82,7 +82,7 @@ export function ProofCapture({ cardId, placeName }: ProofCaptureProps) {
     try {
       const res = await fetch("/api/proof", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-derive-user-secret": getOrCreateUserSecret() },
         body: JSON.stringify({
           cardId,
           userId: getOrCreateUserId(),

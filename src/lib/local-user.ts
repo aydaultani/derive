@@ -1,7 +1,10 @@
 /**
  * DERIVE has no accounts. Identity is an opaque random id minted on first
  * visit and persisted in localStorage — the server never sees more than
- * this id. This file is client-only.
+ * this id. A second, separate secret (also minted here) is sent alongside
+ * it on every request so the server can verify this browser actually owns
+ * the id — see src/lib/user-auth.ts for the trust-on-first-use check. This
+ * file is client-only.
  *
  * The `cards` table (server-side) is the record of truth for collection /
  * completion history — the streak helpers below are a minimal, purely
@@ -10,6 +13,7 @@
  */
 
 const USER_ID_KEY = "derive:userId";
+const USER_SECRET_KEY = "derive:userSecret";
 const STREAK_DATES_KEY = "derive:streakDates";
 const MAX_TRACKED_STREAK_DATES = 30;
 
@@ -32,6 +36,23 @@ export function getOrCreateUserId(): string {
   if (existing) return existing;
   const created = crypto.randomUUID();
   window.localStorage.setItem(USER_ID_KEY, created);
+  return created;
+}
+
+/**
+ * Get the local secret paired with the userId above, minting and
+ * persisting one on first call. Sent on every request (as the
+ * `x-derive-user-secret` header) so the server can verify this browser
+ * actually owns its userId — see src/lib/user-auth.ts.
+ */
+export function getOrCreateUserSecret(): string {
+  if (!hasLocalStorage()) {
+    return crypto.randomUUID();
+  }
+  const existing = window.localStorage.getItem(USER_SECRET_KEY);
+  if (existing) return existing;
+  const created = crypto.randomUUID();
+  window.localStorage.setItem(USER_SECRET_KEY, created);
   return created;
 }
 

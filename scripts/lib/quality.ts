@@ -99,6 +99,29 @@ export function isPureTransitInfrastructure(tags: Record<string, string>): boole
   return false;
 }
 
+/**
+ * Private institutional/care venues — schools, daycares, clinics, nursing
+ * homes, etc. These slip in through the far-out neighborhoods' unfiltered
+ * tag net (see overpass-queries.ts's buildAroundQuery, which pulls every
+ * amenity value rather than a curated allowlist) and are never appropriate
+ * to send a stranger to as a "go visit + do a dare" destination — they
+ * serve children, patients, or vulnerable residents, not casual visitors.
+ * `tags.healthcare` catches pharmacies/clinics/dentists/optometrists that
+ * use the newer healthcare=* tagging instead of (or alongside) amenity=*.
+ */
+const EXCLUDED_AMENITY_VALUES = new Set([
+  "childcare", "kindergarten", "school", "university", "college",
+  "hospital", "clinic", "doctors", "dentist", "veterinary", "pharmacy",
+  "social_facility", "prison", "crematorium", "mortuary", "funeral_hall",
+]);
+
+export function isInappropriateVenue(tags: Record<string, string>): boolean {
+  if (tags.amenity && EXCLUDED_AMENITY_VALUES.has(tags.amenity)) return true;
+  if (tags.social_facility) return true;
+  if (tags.healthcare) return true;
+  return false;
+}
+
 export interface QualityCheckInput {
   name: string | undefined;
   tags: Record<string, string>;
@@ -107,6 +130,7 @@ export interface QualityCheckInput {
 export function passesQualityFilter({ name, tags }: QualityCheckInput): boolean {
   if (!name || !name.trim()) return false;
   if (isPureTransitInfrastructure(tags)) return false;
+  if (isInappropriateVenue(tags)) return false;
   if (meaningfulTagKeys(tags).length < 2) return false;
   return qualityScore(tags) >= QUALITY_THRESHOLD;
 }

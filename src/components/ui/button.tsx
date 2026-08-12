@@ -1,5 +1,4 @@
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
-import { contrastTextColor } from "@/lib/mta-lines";
 
 type Variant = "primary" | "ghost";
 
@@ -36,18 +35,12 @@ export function Button(props: ButtonProps) {
 
   const variantClasses =
     variant === "primary"
-      ? "border hover:brightness-110"
+      ? "border text-ground hover:brightness-110"
       : "border border-ground-line bg-transparent text-platform hover:border-platform-dim";
 
   const style =
     variant === "primary"
-      ? {
-          backgroundColor: tint ?? "var(--platform)",
-          borderColor: tint ?? "var(--platform)",
-          // Fixed by the fill's own lightness (subway-roundel bullet-color
-          // rule), not the theme — stays legible if ground ever flips dark.
-          color: tint ? contrastTextColor(tint) : "var(--ground)",
-        }
+      ? { backgroundColor: tint ?? "var(--platform)", borderColor: tint ?? "var(--platform)" }
       : undefined;
 
   const classes = [BASE_CLASSES, variantClasses, className].filter(Boolean).join(" ");

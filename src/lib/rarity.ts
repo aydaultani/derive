@@ -119,17 +119,27 @@ function bucketPool(sortedAscending: readonly ScoredEntry[]): Record<RarityTier,
   return buckets;
 }
 
-/** Weighted-random tier pick from a single `rng()` draw in [0, 1). */
-function pickWeightedTier(rng: () => number): RarityTier {
+/**
+ * Weighted-random tier pick from a single `rng()` draw in [0, 1), restricted
+ * to `minTier` and above (default "common" = the full range, unrestricted).
+ * `RARITY_WEIGHTS` for the eligible tiers are renormalized to sum to 1 so a
+ * `rarityFloor` doesn't just clip the low end of the same [0,1) draw — a
+ * "rare" floor should give rare/epic/legendary their original *relative*
+ * odds (13:4.5:0.5), not their odds out of the original common-inclusive 1.0.
+ */
+function pickWeightedTier(rng: () => number, minTier: RarityTier = RARITY_TIERS[0]): RarityTier {
+  const eligible = RARITY_TIERS.slice(RARITY_TIERS.indexOf(minTier));
+  const eligibleWeightSum = eligible.reduce((sum, tier) => sum + RARITY_WEIGHTS[tier], 0);
+
   const r = rng();
   let cumulative = 0;
-  for (const tier of RARITY_TIERS) {
-    cumulative += RARITY_WEIGHTS[tier];
+  for (const tier of eligible) {
+    cumulative += RARITY_WEIGHTS[tier] / eligibleWeightSum;
     if (r < cumulative) return tier;
   }
   // Floating-point safety net: cumulative weights sum to 1 but rounding
   // error could leave r >= cumulative after the loop (e.g. r === 0.999999999).
-  return RARITY_TIERS[RARITY_TIERS.length - 1];
+  return eligible[eligible.length - 1];
 }
 
 /**
@@ -154,12 +164,26 @@ function resolveTierWithFallback(tier: RarityTier, buckets: Record<RarityTier, S
 
 /**
  * Deals one card for `(userId, dealtDate)` from `pool`. Pure function of its
- * three arguments: same inputs always produce the same `RollResult`, which
- * is what makes "no rerolls, refresh doesn't reroll" true. `pool` must be
+ * arguments: same inputs always produce the same `RollResult`, which is what
+ * makes "no rerolls, refresh doesn't reroll" true. `pool` must be
  * non-empty — an empty pool reaching this function is a caller bug (should
  * be caught upstream as a "pool too small" filter error) and throws.
+ *
+ * `minTier` (default "common", i.e. no floor) is the `rarityFloor` filter.
+ * Bucketing still runs over the *entire* `pool` passed in (never pre-filtered
+ * by the caller) so a "rare" result stays genuinely rare relative to the
+ * whole candidate set — only draw #1's tier pick is restricted to
+ * `minTier` and above. If the tiny-pool empty-bucket fallback (see
+ * `resolveTierWithFallback`) has to dip below `minTier`, that's the same
+ * documented small-pool degradation the fallback already does for any draw,
+ * not a new floor violation.
  */
-export function rollCard(pool: ScoredPlaceInput[], userId: string, dealtDate: string): RollResult {
+export function rollCard(
+  pool: ScoredPlaceInput[],
+  userId: string,
+  dealtDate: string,
+  minTier: RarityTier = RARITY_TIERS[0],
+): RollResult {
   if (pool.length === 0) {
     throw new Error("rollCard: pool must not be empty (caller bug — filter upstream, e.g. pool_too_small).");
   }
@@ -171,7 +195,7 @@ export function rollCard(pool: ScoredPlaceInput[], userId: string, dealtDate: st
   const buckets = bucketPool(scored);
 
   const rng = createSeededRandom(`${userId}:${dealtDate}`);
-  const drawnTier = pickWeightedTier(rng); // draw #1
+  const drawnTier = pickWeightedTier(rng, minTier); // draw #1
   const tier = resolveTierWithFallback(drawnTier, buckets);
 
   const bucket = buckets[tier];

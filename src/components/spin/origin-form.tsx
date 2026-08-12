@@ -133,6 +133,7 @@ export function OriginForm({ onSubmit, pending, errorMessage }: OriginFormProps)
           <input
             id="origin"
             name="origin"
+            data-onboarding="origin-input"
             type="text"
             inputMode="text"
             autoComplete="off"
@@ -195,7 +196,7 @@ export function OriginForm({ onSubmit, pending, errorMessage }: OriginFormProps)
               <LoadingBracket />
             </div>
           ) : (
-            <Button type="submit" disabled={!canSubmit}>
+            <Button type="submit" disabled={!canSubmit} data-onboarding="spin-button">
               Spin
             </Button>
           )}

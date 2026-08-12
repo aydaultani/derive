@@ -92,9 +92,14 @@ export interface DitherFieldProps {
   cols?: number;
   rows?: number;
   className?: string;
+  /** Overrides the `--reveal-duration` token read from the document root —
+   * needed when a caller (CardReveal) scopes that token to a local override
+   * via inline style rather than the global one, since `getComputedStyle`
+   * below only ever sees the root's value otherwise. */
+  revealDurationMs?: number;
 }
 
-export function DitherField({ density, seed, cols = 26, rows = 6, className }: DitherFieldProps) {
+export function DitherField({ density, seed, cols = 26, rows = 6, className, revealDurationMs }: DitherFieldProps) {
   const reducedMotion = usePrefersReducedMotion();
   const cellCount = cols * rows;
   const finalSeed = useMemo(() => hashString(seed), [seed]);
@@ -113,7 +118,7 @@ export function DitherField({ density, seed, cols = 26, rows = 6, className }: D
     // grid, so there's nothing left to animate.
     if (reducedMotion) return;
 
-    const resolveMs = readRevealDurationMs() * RESOLVE_FRACTION;
+    const resolveMs = (revealDurationMs ?? readRevealDurationMs()) * RESOLVE_FRACTION;
     let frame = 0;
     const totalFrames = Math.max(1, Math.round(resolveMs / NOISE_FRAME_MS));
     const interval = window.setInterval(() => {
@@ -128,7 +133,7 @@ export function DitherField({ density, seed, cols = 26, rows = 6, className }: D
     }, NOISE_FRAME_MS);
 
     return () => window.clearInterval(interval);
-  }, [finalSeed, finalGrid, density, cellCount, reducedMotion]);
+  }, [finalSeed, finalGrid, density, cellCount, reducedMotion, revealDurationMs]);
 
   return (
     <div

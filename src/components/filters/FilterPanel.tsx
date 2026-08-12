@@ -18,7 +18,6 @@ import { ChipRow } from "./Chip";
 import { BUDGET_LABELS, RARITY_LABELS, TIME_WINDOW_HINTS, TIME_WINDOW_LABELS, titleCase } from "./labels";
 import { PoolSizeWarning } from "./PoolSizeWarning";
 import { Toggle } from "./Toggle";
-import { useFilters } from "./use-filters";
 import { usePoolSize } from "./use-pool-size";
 
 const TRAVEL_OPTIONS: { value: Filters["maxTravelMinutes"]; label: string }[] = [
@@ -36,32 +35,32 @@ const BUDGET_OPTIONS = BUDGET_TIERS.map((b) => ({ value: b, label: BUDGET_LABELS
 const TIME_WINDOW_OPTIONS = TIME_WINDOWS.map((t) => ({ value: t, label: TIME_WINDOW_LABELS[t] }));
 
 interface FilterPanelProps {
-  /** Called whenever the persisted filter state changes, so a parent (the
-   * spin flow) can read the latest value without re-deriving storage logic. */
-  onFiltersChange?: (filters: Filters) => void;
+  /** Controlled: the parent (page.tsx) owns the single `useFilters()`
+   * instance backing both the spin request and this panel's persisted
+   * localStorage state. FilterPanel used to call its own separate
+   * `useFilters()` — two independent instances racing on the same
+   * `derive:filters` key, whichever set last silently clobbering the
+   * other's in-memory state (not just a display glitch: a chip clicked
+   * right after the panel opened could compute its patch off a
+   * not-yet-hydrated DEFAULT_FILTERS and stomp everything the parent had
+   * already set). Controlled props make the parent the only writer. */
+  filters: Filters;
+  onChange: (filters: Filters) => void;
+  hydrated: boolean;
 }
 
-export function FilterPanel({ onFiltersChange }: FilterPanelProps) {
-  const { filters, setFilters, resetFilters, hydrated } = useFilters();
+export function FilterPanel({ filters, onChange, hydrated }: FilterPanelProps) {
   const { poolSize, warning, loading } = usePoolSize(filters, hydrated);
 
   const update = (patch: Partial<Filters>) => {
-    setFilters((prev) => {
-      const next = { ...prev, ...patch };
-      onFiltersChange?.(next);
-      return next;
-    });
+    onChange({ ...filters, ...patch });
   };
 
   const toggleMulti = <K extends "boroughs" | "categories">(key: K, value: Filters[K][number]) => {
-    setFilters((prev) => {
-      const current = prev[key] as unknown as string[];
-      const exists = current.includes(value);
-      const nextList = exists ? current.filter((v) => v !== value) : [...current, value];
-      const next = { ...prev, [key]: nextList };
-      onFiltersChange?.(next);
-      return next;
-    });
+    const current = filters[key] as unknown as string[];
+    const exists = current.includes(value);
+    const nextList = exists ? current.filter((v) => v !== value) : [...current, value];
+    onChange({ ...filters, [key]: nextList });
   };
 
   const isDirty = JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS);
@@ -73,10 +72,7 @@ export function FilterPanel({ onFiltersChange }: FilterPanelProps) {
         {isDirty ? (
           <button
             type="button"
-            onClick={() => {
-              resetFilters();
-              onFiltersChange?.(DEFAULT_FILTERS);
-            }}
+            onClick={() => onChange(DEFAULT_FILTERS)}
             className="chrome text-[10px] text-platform-dim underline decoration-dotted underline-offset-2 hover:text-platform"
           >
             Reset
