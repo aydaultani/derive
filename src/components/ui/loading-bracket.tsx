@@ -25,11 +25,15 @@ function randomRow(): string[] {
  */
 export function LoadingBracket({ label = "ROLLING" }: { label?: string }) {
   const reducedMotion = usePrefersReducedMotion();
-  const [row, setRow] = useState<string[]>(() =>
-    reducedMotion ? Array(NOISE_COLS).fill("░") : randomRow(),
-  );
+  // Deterministic placeholder so server and client render identical markup
+  // on first paint — randomRow() picks glyphs via Math.random(), so seeding
+  // useState with it directly would mismatch between SSR and hydration.
+  // The real noise (or, under reduced motion, one static random-looking
+  // frame) is only ever set client-side, in the effect below.
+  const [row, setRow] = useState<string[]>(() => Array(NOISE_COLS).fill("░"));
 
   useEffect(() => {
+    setRow(randomRow());
     if (reducedMotion) return;
     const interval = window.setInterval(() => setRow(randomRow()), NOISE_FRAME_MS);
     return () => window.clearInterval(interval);
